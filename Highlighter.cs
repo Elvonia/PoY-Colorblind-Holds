@@ -1,6 +1,7 @@
 ﻿using MelonLoader;
 using UnityEngine;
 using System.Collections.Generic;
+using System.Runtime;
 
 namespace Colorblind_Holds
 {
@@ -32,6 +33,18 @@ namespace Colorblind_Holds
 
         private Dictionary<GameObject, Renderer> cachedRenderers = new Dictionary<GameObject, Renderer>();
 
+        private MelonPreferences_Category keybinds;
+        private MelonPreferences_Entry<KeyCode> toggleMenu;
+
+        public override void OnInitializeMelon()
+        {
+            keybinds = MelonPreferences.CreateCategory("keybinds");
+            keybinds.SetFilePath("UserData/Colorblind Holds.cfg");
+            keybinds.LoadFromFile();
+
+            toggleMenu = keybinds.CreateEntry<KeyCode>("Toggle Menu", KeyCode.Insert);
+        }
+
         public override void OnSceneWasInitialized(int buildIndex, string sceneName)
         {
             base.OnSceneWasInitialized(buildIndex, sceneName);
@@ -47,7 +60,7 @@ namespace Colorblind_Holds
         {
             base.OnUpdate();
 
-            if (Input.GetKeyDown(KeyCode.Insert))
+            if (Input.GetKeyDown(toggleMenu.Value))
             {
                 isMenuVisible = !isMenuVisible;
             }
