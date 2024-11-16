@@ -6,37 +6,60 @@ namespace Colorblind_Holds
 {
     public class Highlighter : MelonMod
     {
-        private readonly List<string> targetTags = new List<string>
-        {
-            "Climbable",
-            "ClimbableMicroHold",
-            "ClimbableRigidbody",
-            "Crack",
-            "ClimbablePitch",
-            "PinchHold",
-            "Volume"
-        };
-
-        private Dictionary<string, Color> colorblindModes = new Dictionary<string, Color>
+        private readonly Dictionary<string, Color> colorblindModes = new Dictionary<string, Color>
         {
             { "Protanopia", new Color(1f, 0.5f, 0.5f) },
             { "Deuteranopia", new Color(0.5f, 1f, 0.5f) },
             { "Tritanopia", new Color(0.5f, 0.5f, 1f) }
         };
 
+        private Dictionary<GameObject, Renderer> cachedRenderers = new Dictionary<GameObject, Renderer>();
+
+        private Dictionary<string, bool> holdTypeToggles = new Dictionary<string, bool>
+        {
+            { "Climbable", true },
+            { "ClimbableMicroHold", true },
+            { "ClimbableRigidbody", true },
+            { "Crack", true },
+            { "ClimbablePitch", true },
+            { "PinchHold", true },
+            { "Volume", true }
+        };
+
         private bool isMenuVisible = false;
         private bool isModActive = true;
         private string selectedMode = null;
-        private bool useCustomColor = false;
+        private bool useCustomColor = true;
         private Color customColor = Color.white;
 
-        private Dictionary<GameObject, Renderer> cachedRenderers = new Dictionary<GameObject, Renderer>();
+        private KeyCode toggleKey = KeyCode.Insert;
+        private bool awaitingKeybind = false;
+        private bool showHoldSubmenu = true;
+
+        private MelonPreferences_Category preferencesCategory;
+        private MelonPreferences_Entry<string> savedToggleKey;
+        private MelonPreferences_Entry<bool> savedModActive;
+        private MelonPreferences_Entry<string> savedSelectedMode;
+        private MelonPreferences_Entry<bool> savedUseCustomColor;
+        private MelonPreferences_Entry<string> savedCustomColor;
+        private MelonPreferences_Entry<string> savedHoldTypes;
+
+        public override void OnInitializeMelon()
+        {
+            preferencesCategory = MelonPreferences.CreateCategory("Colorblind_Holds", "Colorblind Holds");
+            savedToggleKey = preferencesCategory.CreateEntry("ToggleKey", KeyCode.Insert.ToString());
+            savedModActive = preferencesCategory.CreateEntry("ModActive", true);
+            savedSelectedMode = preferencesCategory.CreateEntry("SelectedMode", string.Empty);
+            savedUseCustomColor = preferencesCategory.CreateEntry("UseCustomColor", true);
+            savedCustomColor = preferencesCategory.CreateEntry("CustomColor", ColorUtility.ToHtmlStringRGBA(Color.white));
+            savedHoldTypes = preferencesCategory.CreateEntry("HoldTypes", SerializeHoldTypes());
+            LoadPreferences();
+        }
 
         public override void OnSceneWasInitialized(int buildIndex, string sceneName)
         {
             base.OnSceneWasInitialized(buildIndex, sceneName);
             CacheRenderers();
-
             if (isModActive)
             {
                 HighlightAllObjects();
@@ -46,10 +69,15 @@ namespace Colorblind_Holds
         public override void OnUpdate()
         {
             base.OnUpdate();
-
-            if (Input.GetKeyDown(KeyCode.Insert))
+            if (!awaitingKeybind && Input.GetKeyDown(toggleKey))
             {
                 isMenuVisible = !isMenuVisible;
+            }
+            if (awaitingKeybind && Event.current != null && Event.current.isKey)
+            {
+                toggleKey = Event.current.keyCode;
+                awaitingKeybind = false;
+                SavePreferences();
             }
         }
 
@@ -60,12 +88,26 @@ namespace Colorblind_Holds
             if (!isMenuVisible)
                 return;
 
-            GUILayout.BeginArea(new Rect(10, 10, 300, 325), GUI.skin.box);
+            GUILayout.BeginArea(new Rect(10, 10, 300, 500), GUI.skin.box);
 
             isModActive = GUILayout.Toggle(isModActive, "Mod Active");
 
-            GUILayout.Label("Modes");
+            if (GUILayout.Button("Save Changes"))
+            {
+                SavePreferences();
+                UpdateObjectColors();
+            }
 
+            if (awaitingKeybind)
+            {
+                GUILayout.Label("Press any key...");
+            }
+            else if (GUILayout.Button($"Menu Toggle Key: {toggleKey}"))
+            {
+                awaitingKeybind = true;
+            }
+
+            GUILayout.Label("Colorblind Modes");
             foreach (var mode in colorblindModes.Keys)
             {
                 bool isSelected = selectedMode == mode;
@@ -85,7 +127,6 @@ namespace Colorblind_Holds
             if (useCustomColor)
             {
                 selectedMode = null;
-
                 GUILayout.Label("Custom Color Picker");
                 customColor.r = GUILayout.HorizontalSlider(customColor.r, 0f, 1f);
                 GUILayout.Label($"Red: {customColor.r:F2}");
@@ -95,9 +136,18 @@ namespace Colorblind_Holds
                 GUILayout.Label($"Blue: {customColor.b:F2}");
             }
 
-            if (GUILayout.Button("Apply Changes"))
+            showHoldSubmenu = GUILayout.Toggle(showHoldSubmenu, "Toggle Hold Types");
+            if (showHoldSubmenu)
             {
-                UpdateObjectColors();
+                GUILayout.BeginVertical(GUI.skin.box);
+
+                List<string> holdTypes = new List<string>(holdTypeToggles.Keys);
+                foreach (var holdType in holdTypes)
+                {
+                    holdTypeToggles[holdType] = GUILayout.Toggle(holdTypeToggles[holdType], holdType);
+                }
+
+                GUILayout.EndVertical();
             }
 
             GUILayout.EndArea();
@@ -110,7 +160,7 @@ namespace Colorblind_Holds
 
             foreach (var obj in allObjects)
             {
-                if (targetTags.Contains(obj.tag))
+                if (holdTypeToggles.ContainsKey(obj.tag) && holdTypeToggles[obj.tag])
                 {
                     Renderer renderer = obj.GetComponent<Renderer>();
                     if (renderer != null)
@@ -157,7 +207,54 @@ namespace Colorblind_Holds
             if (!isModActive)
                 return;
 
+            CacheRenderers();
             HighlightAllObjects();
+        }
+
+        private void SavePreferences()
+        {
+            savedToggleKey.Value = toggleKey.ToString();
+            savedModActive.Value = isModActive;
+            savedSelectedMode.Value = selectedMode ?? string.Empty;
+            savedUseCustomColor.Value = useCustomColor;
+            savedCustomColor.Value = ColorUtility.ToHtmlStringRGBA(customColor);
+            savedHoldTypes.Value = SerializeHoldTypes();
+            MelonPreferences.Save();
+        }
+
+        private void LoadPreferences()
+        {
+            toggleKey = (KeyCode)System.Enum.Parse(typeof(KeyCode), savedToggleKey.Value);
+            isModActive = savedModActive.Value;
+            selectedMode = string.IsNullOrEmpty(savedSelectedMode.Value) ? null : savedSelectedMode.Value;
+            useCustomColor = savedUseCustomColor.Value;
+            if (ColorUtility.TryParseHtmlString($"#{savedCustomColor.Value}", out Color color))
+            {
+                customColor = color;
+            }
+            DeserializeHoldTypes(savedHoldTypes.Value);
+        }
+
+        private string SerializeHoldTypes()
+        {
+            List<string> entries = new List<string>();
+            foreach (var pair in holdTypeToggles)
+            {
+                entries.Add($"{pair.Key}:{pair.Value}");
+            }
+            return string.Join(",", entries);
+        }
+
+        private void DeserializeHoldTypes(string data)
+        {
+            foreach (var entry in data.Split(','))
+            {
+                var kv = entry.Split(':');
+                if (kv.Length == 2 && holdTypeToggles.ContainsKey(kv[0]))
+                {
+                    holdTypeToggles[kv[0]] = bool.Parse(kv[1]);
+                }
+            }
         }
     }
 }

@@ -3,7 +3,7 @@ using MelonLoader;
 using System.Reflection;
 using System.Runtime.InteropServices;
 
-[assembly: MelonInfo(typeof(Highlighter), "Colorblind Holds", "1.0", "Kalico")]
+[assembly: MelonInfo(typeof(Highlighter), "Colorblind Holds", "1.1", "Kalico")]
 [assembly: MelonGame("TraipseWare", "Peaks of Yore")]
 
 // General Information about an assembly is controlled through the following
