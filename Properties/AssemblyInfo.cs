@@ -1,10 +1,15 @@
-﻿using Colorblind_Holds;
-using MelonLoader;
-using System.Reflection;
+﻿using System.Reflection;
 using System.Runtime.InteropServices;
+
+#if MELONLOADER
+
+using Colorblind_Holds;
+using MelonLoader;
 
 [assembly: MelonInfo(typeof(Highlighter), "Colorblind Holds", "1.1", "Kalico")]
 [assembly: MelonGame("TraipseWare", "Peaks of Yore")]
+
+#endif
 
 // General Information about an assembly is controlled through the following
 // set of attributes. Change these attribute values to modify the information
