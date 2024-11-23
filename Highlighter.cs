@@ -1,10 +1,27 @@
-﻿using MelonLoader;
+﻿#if BEPINEX
+using BepInEx;
+using BepInEx.Configuration;
+using UnityEngine.SceneManagement;
+
+#elif MELONLOADER
+using MelonLoader;
+
+#endif
+
 using UnityEngine;
 using System.Collections.Generic;
 
 namespace Colorblind_Holds
 {
+
+#if BEPINEX
+    [BepInPlugin("com.github.Elvonia.PoY-Colorblind-Holds", "Colorblind Holds", PluginInfo.PLUGIN_VERSION)]
+    public class Highlighter : BaseUnityPlugin
+
+#elif MELONLOADER
     public class Highlighter : MelonMod
+
+#endif
     {
         private readonly Dictionary<string, Color> colorblindModes = new Dictionary<string, Color>
         {
@@ -36,6 +53,48 @@ namespace Colorblind_Holds
         private bool awaitingKeybind = false;
         private bool showHoldSubmenu = true;
 
+#if BEPINEX
+        private ConfigEntry<string> savedToggleKey;
+        private ConfigEntry<bool> savedModActive;
+        private ConfigEntry<string> savedSelectedMode;
+        private ConfigEntry<bool> savedUseCustomColor;
+        private ConfigEntry<string> savedCustomColor;
+        private ConfigEntry<string> savedHoldTypes;
+
+        public void Awake()
+        {
+            SceneManager.sceneLoaded += this.OnSceneLoaded;
+
+            savedToggleKey = Config.Bind("General", "ToggleKey", KeyCode.Insert.ToString());
+            savedModActive = Config.Bind("General", "ModActive", true);
+            savedSelectedMode = Config.Bind("General", "SelectedMode", string.Empty);
+            savedUseCustomColor = Config.Bind("General", "UseCustomColor", true);
+            savedCustomColor = Config.Bind("General", "CustomColor", ColorUtility.ToHtmlStringRGBA(Color.white));
+            savedHoldTypes = Config.Bind("General", "HoldTypes", SerializeHoldTypes());
+            LoadPreferences();
+        }
+
+        public void OnDestroy()
+        {
+            SceneManager.sceneLoaded -= this.OnSceneLoaded;
+        }
+
+        public void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            CommonSceneLoad();
+        }
+
+        public void Update()
+        {
+            CommonUpdate();
+        }
+
+        public void OnGUI()
+        {
+            CommonGUI();
+        }
+
+#elif MELONLOADER
         private MelonPreferences_Category preferencesCategory;
         private MelonPreferences_Entry<string> savedToggleKey;
         private MelonPreferences_Entry<bool> savedModActive;
@@ -59,6 +118,24 @@ namespace Colorblind_Holds
         public override void OnSceneWasInitialized(int buildIndex, string sceneName)
         {
             base.OnSceneWasInitialized(buildIndex, sceneName);
+            CommonSceneLoad();
+        }
+
+        public override void OnUpdate()
+        {
+            base.OnUpdate();
+            CommonUpdate();
+        }
+
+        public override void OnGUI()
+        {
+            base.OnGUI();
+            CommonGUI();
+        }
+
+#endif
+        public void CommonSceneLoad()
+        {
             CacheRenderers();
             if (isModActive)
             {
@@ -66,9 +143,8 @@ namespace Colorblind_Holds
             }
         }
 
-        public override void OnUpdate()
+        private void CommonUpdate()
         {
-            base.OnUpdate();
             if (!awaitingKeybind && Input.GetKeyDown(toggleKey))
             {
                 isMenuVisible = !isMenuVisible;
@@ -81,10 +157,8 @@ namespace Colorblind_Holds
             }
         }
 
-        public override void OnGUI()
+        public void CommonGUI()
         {
-            base.OnGUI();
-
             if (!isMenuVisible)
                 return;
 
@@ -219,7 +293,12 @@ namespace Colorblind_Holds
             savedUseCustomColor.Value = useCustomColor;
             savedCustomColor.Value = ColorUtility.ToHtmlStringRGBA(customColor);
             savedHoldTypes.Value = SerializeHoldTypes();
+
+#if BEPINEX
+            Config.Save();
+#elif MELONLOADER
             MelonPreferences.Save();
+#endif
         }
 
         private void LoadPreferences()
