@@ -1,4 +1,8 @@
-﻿#if BEPINEX
+﻿using UnityEngine;
+using System.Collections.Generic;
+
+
+#if BEPINEX
 using BepInEx;
 using BepInEx.Configuration;
 using UnityEngine.SceneManagement;
@@ -6,10 +10,10 @@ using UnityEngine.SceneManagement;
 #elif MELONLOADER
 using MelonLoader;
 
-#endif
+[assembly: MelonInfo(typeof(Colorblind_Holds.Highlighter), "Colorblind Holds", PluginInfo.PLUGIN_VERSION, "Kalico")]
+[assembly: MelonGame("TraipseWare", "Peaks of Yore")]
 
-using UnityEngine;
-using System.Collections.Generic;
+#endif
 
 namespace Colorblind_Holds
 {
@@ -162,7 +166,7 @@ namespace Colorblind_Holds
             if (!isMenuVisible)
                 return;
 
-            GUILayout.BeginArea(new Rect(10, 10, 300, 500), GUI.skin.box);
+            GUILayout.BeginArea(new Rect(10, 10, 300, 525), GUI.skin.box);
 
             isModActive = GUILayout.Toggle(isModActive, "Mod Active");
 
