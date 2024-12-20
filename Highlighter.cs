@@ -240,7 +240,13 @@ namespace Colorblind_Holds
             {
                 if (holdTypeToggles.ContainsKey(obj.tag) && holdTypeToggles[obj.tag])
                 {
-                    Renderer renderer = obj.GetComponent<Renderer>();
+                    Renderer renderer = obj.GetComponentInChildren<Renderer>();
+
+                    if (renderer == null)
+                    {
+                        renderer = obj.GetComponentInParent<Renderer>();
+                    }
+
                     if (renderer != null)
                     {
                         cachedRenderers[obj] = renderer;
