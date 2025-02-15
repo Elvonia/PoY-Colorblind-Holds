@@ -247,6 +247,20 @@ namespace Colorblind_Holds
 
                 cachedRenderers[renderer.gameObject] = renderer;
             }
+
+        private void RenderCrack(GameObject obj)
+        {
+            BoxCollider collider = obj.GetComponent<BoxCollider>();
+            GameObject crackRenderer = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            crackRenderer.name = "Crack Renderer";
+
+            GameObject.DestroyImmediate(crackRenderer.GetComponent<BoxCollider>());
+            crackRenderer.transform.SetParent(obj.transform);
+            crackRenderer.transform.localRotation = Quaternion.identity;
+            crackRenderer.transform.localPosition = collider.center;
+            crackRenderer.transform.localScale = collider.size;
+
+            cachedRenderers[crackRenderer] = crackRenderer.GetComponent<Renderer>();
         }
 
         private void CacheRenderers()
@@ -261,6 +275,12 @@ namespace Colorblind_Holds
                     if (LayerMask.NameToLayer("Branch").Equals(obj.layer))
                     {
                         RenderBranch(obj);
+                        continue;
+                    }
+                      
+                    if ("Crack".Equals(obj.tag))
+                    {
+                        RenderCrack(obj);
                         continue;
                     }
 
