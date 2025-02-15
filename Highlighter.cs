@@ -231,6 +231,23 @@ namespace Colorblind_Holds
             GUILayout.EndArea();
         }
 
+        private void RenderBranch(GameObject obj)
+        {
+            foreach (MeshRenderer renderer in obj.GetComponentsInChildren<MeshRenderer>())
+            {
+                string name = renderer.gameObject.name;
+
+                if (name.StartsWith("bush")
+                    || name.StartsWith("ShrubberyObstacle")
+                    || name.StartsWith("singlebranch")
+                    || name.Contains("bough_leaves"))
+                {
+                    continue;
+                }
+
+                cachedRenderers[renderer.gameObject] = renderer;
+            }
+
         private void RenderCrack(GameObject obj)
         {
             BoxCollider collider = obj.GetComponent<BoxCollider>();
@@ -255,6 +272,12 @@ namespace Colorblind_Holds
             {
                 if (holdTypeToggles.ContainsKey(obj.tag) && holdTypeToggles[obj.tag])
                 {
+                    if (LayerMask.NameToLayer("Branch").Equals(obj.layer))
+                    {
+                        RenderBranch(obj);
+                        continue;
+                    }
+                      
                     if ("Crack".Equals(obj.tag))
                     {
                         RenderCrack(obj);
