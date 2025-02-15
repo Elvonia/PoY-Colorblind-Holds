@@ -141,6 +141,7 @@ namespace Colorblind_Holds
         public void CommonSceneLoad()
         {
             CacheRenderers();
+
             if (isModActive)
             {
                 HighlightAllObjects();
@@ -247,6 +248,7 @@ namespace Colorblind_Holds
 
                 cachedRenderers[renderer.gameObject] = renderer;
             }
+        }
 
         private void RenderCrack(GameObject obj)
         {
