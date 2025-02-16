@@ -34,7 +34,7 @@ namespace Colorblind_Holds
             { "Tritanopia", new Color(0.5f, 0.5f, 1f) }
         };
 
-        private Dictionary<GameObject, Renderer> cachedRenderers = new Dictionary<GameObject, Renderer>();
+        private List<Materials> cachedRenderers = new List<Materials>();
 
         private Dictionary<string, bool> holdTypeToggles = new Dictionary<string, bool>
         {
@@ -141,11 +141,7 @@ namespace Colorblind_Holds
         public void CommonSceneLoad()
         {
             CacheRenderers();
-
-            if (isModActive)
-            {
-                HighlightAllObjects();
-            }
+            UpdateObjectColors();
         }
 
         private void CommonUpdate()
@@ -232,7 +228,29 @@ namespace Colorblind_Holds
             GUILayout.EndArea();
         }
 
-        private void RenderBranch(GameObject obj)
+        private Color GetColor()
+        {
+            Color color = customColor;
+
+            if (selectedMode != null && colorblindModes.ContainsKey(selectedMode))
+            {
+                color = colorblindModes[selectedMode];
+            }
+
+            return color;
+        }
+
+        private Material MakeMaterial()
+        {
+            Material material = new Material(Shader.Find("Standard"))
+            {
+                color = GetColor()
+            };
+
+            return material;
+        }
+
+        private void CacheBranch(GameObject obj)
         {
             foreach (MeshRenderer renderer in obj.GetComponentsInChildren<MeshRenderer>())
             {
@@ -246,99 +264,88 @@ namespace Colorblind_Holds
                     continue;
                 }
 
-                cachedRenderers[renderer.gameObject] = renderer;
+                cachedRenderers.Add(new Materials(
+                    renderer.gameObject, obj.tag, renderer.material, MakeMaterial()
+                ));
             }
         }
 
-        private void RenderCrack(GameObject obj)
+        private void CacheCrack(GameObject obj)
         {
             BoxCollider collider = obj.GetComponent<BoxCollider>();
-            GameObject crackRenderer = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            crackRenderer.name = "Crack Renderer";
+            GameObject child = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            child.name = "Crack Renderer";
 
-            GameObject.DestroyImmediate(crackRenderer.GetComponent<BoxCollider>());
-            crackRenderer.transform.SetParent(obj.transform);
-            crackRenderer.transform.localRotation = Quaternion.identity;
-            crackRenderer.transform.localPosition = collider.center;
-            crackRenderer.transform.localScale = collider.size;
+            GameObject.DestroyImmediate(child.GetComponent<BoxCollider>());
+            child.transform.SetParent(obj.transform);
+            child.transform.localRotation = Quaternion.identity;
+            child.transform.localPosition = collider.center;
+            child.transform.localScale = collider.size;
 
-            cachedRenderers[crackRenderer] = crackRenderer.GetComponent<Renderer>();
+            cachedRenderers.Add(new Materials(
+                child, obj.tag, null, MakeMaterial()
+            ));
         }
 
         private void CacheRenderers()
         {
             cachedRenderers.Clear();
+
             GameObject[] allObjects = GameObject.FindObjectsOfType<GameObject>();
 
             foreach (var obj in allObjects)
             {
-                if (holdTypeToggles.ContainsKey(obj.tag) && holdTypeToggles[obj.tag])
+                if (holdTypeToggles.ContainsKey(obj.tag) == false)
                 {
-                    if (LayerMask.NameToLayer("Branch").Equals(obj.layer))
-                    {
-                        RenderBranch(obj);
-                        continue;
-                    }
-                      
-                    if ("Crack".Equals(obj.tag))
-                    {
-                        RenderCrack(obj);
-                        continue;
-                    }
-
-                    Renderer renderer = obj.GetComponentInChildren<Renderer>();
-
-                    if (renderer == null)
-                    {
-                        renderer = obj.GetComponentInParent<Renderer>();
-                    }
-
-                    if (renderer != null)
-                    {
-                        cachedRenderers[obj] = renderer;
-                    }
-                }
-            }
-        }
-
-        private void HighlightAllObjects()
-        {
-            foreach (var obj in cachedRenderers.Keys)
-            {
-                HighlightObject(obj);
-            }
-        }
-
-        private void HighlightObject(GameObject obj)
-        {
-            if (!isModActive)
-                return;
-
-            if (cachedRenderers.TryGetValue(obj, out Renderer renderer))
-            {
-                Color color = customColor;
-
-                if (selectedMode != null && colorblindModes.ContainsKey(selectedMode))
-                {
-                    color = colorblindModes[selectedMode];
+                    continue;
                 }
 
-                Material highlightMaterial = new Material(Shader.Find("Standard"))
+                if (LayerMask.NameToLayer("Branch").Equals(obj.layer))
                 {
-                    color = color
-                };
+                    CacheBranch(obj);
+                    continue;
+                }
 
-                renderer.material = highlightMaterial;
+                if ("Crack".Equals(obj.tag))
+                {
+                    CacheCrack(obj);
+                    continue;
+                }
+
+                Renderer renderer = obj.GetComponentInChildren<Renderer>();
+
+                if (renderer == null)
+                {
+                    renderer = obj.GetComponentInParent<Renderer>();
+                }
+
+                if (renderer != null)
+                {
+                    cachedRenderers.Add(new Materials(
+                        obj, obj.tag, renderer.material, MakeMaterial()
+                    ));
+                }
             }
         }
 
         private void UpdateObjectColors()
         {
-            if (!isModActive)
-                return;
+            foreach (Materials materials in cachedRenderers)
+            {
+                UpdateObject(materials);
+            }
+        }
 
-            CacheRenderers();
-            HighlightAllObjects();
+        private void UpdateObject(Materials materials)
+        {
+            if (isModActive && holdTypeToggles.ContainsKey(materials.tag) && holdTypeToggles[materials.tag])
+            {
+                materials.Enable(GetColor());
+            }
+            else
+            {
+                materials.Disable();
+            }
         }
 
         private void SavePreferences()
